@@ -6,7 +6,7 @@ func Main() {
 	var color uint8 = 7;
 	var buffer uintptr = 0xB8000;
 
-	msg := "hello, kernel"
+	msg := "hello, porcupine!"
 
 	for i := 0; i < len(msg); i++ {
 		offset := i
