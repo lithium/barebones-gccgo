@@ -3,36 +3,49 @@ GCCGO := i686-elf-gccgo
 NASM := nasm
 GRUB_MKRESCUE := grub-mkrescue
 
-ISO_BUILD := build/iso
-
-default: build
-
-
-build: porcupine.iso
+OBJ := build
+ISO_STAGING := $(OBJ)/iso
+BOOTABLE_ISO := porcupine.iso
 
 
-kernel.bin: boot.o kernel.o runtime/libgo.so
-	$(GCC) -T linker.ld -o $@ -ffreestanding -nostdlib -lgcc $^
+sources := $(wildcard go/src/**/*.go)
+objects := $(addprefix $(OBJ)/, $(notdir $(sources:%.go=%.o)))
 
-kernel.o: kernel.go
-	$(GCCGO) -c kernel.go -fgo-prefix=porcupine
 
-runtime/libgo.so: runtime/libgo.c
+default: build $(BOOTABLE_ISO) 
+
+
+build: 
+	mkdir -p $(OBJ)
+	echo $(sources)
+	echo $(objects)
+
+
+# link kernel
+$(OBJ)/kernel.bin: $(OBJ)/boot.o $(OBJ)/libgo.so $(objects)
+	$(GCC) -T boot/linker.ld -o $@ -ffreestanding -nostdlib -lgcc $^
+
+# compile go -> .o
+$(OBJ)/%.o: go/src/**/%.go
+	$(GCCGO) -static -Werror -nostdlib -nostartfiles -nodefaultlibs -c $^ -o $@ -fgo-prefix=porcupine
+
+# go runtime
+$(OBJ)/libgo.so: runtime/libgo.c
 	$(GCC) -shared -c $^ -o $@ -std=gnu99 -ffreestanding
 
-boot.o: boot.asm
-	$(NASM) -felf32 boot.asm -o boot.o
+# assemble bootloader
+$(OBJ)/boot.o: boot/boot.asm
+	$(NASM) -felf32 $^ -o $@
 
-porcupine.iso: kernel.bin
-	mkdir -p $(ISO_BUILD)/boot/grub
-	cp kernel.bin $(ISO_BUILD)/boot/kernel.bin
-	cp grub.cfg $(ISO_BUILD)/boot/grub/grub.cfg
-	$(GRUB_MKRESCUE) -o $@ $(ISO_BUILD)
+
+# bootable iso 
+$(BOOTABLE_ISO): $(OBJ)/kernel.bin
+	mkdir -p $(ISO_STAGING)/boot/grub
+	cp $(OBJ)/kernel.bin $(ISO_STAGING)/boot/kernel.bin
+	cp boot/grub.cfg $(ISO_STAGING)/boot/grub/grub.cfg
+	$(GRUB_MKRESCUE) -o $@ $(ISO_STAGING)
 
 
 clean: 
-	rm -f *.o
-	rm -f **/*.so
-	rm -f *.bin
-	rm -f *.iso
-	rm -rf $(ISO_BUILD)
+	rm -rf $(OBJ)
+	rm -f $(BOOTABLE_ISO)
