@@ -1,6 +1,8 @@
-GCC := i686-elf-gcc
-GCCGO := i686-elf-gccgo
-NASM := nasm
+TARGET := i686-elf
+
+GCC := $(TARGET)-gcc
+GCCGO := $(TARGET)-gccgo
+GAS := $(TARGET)-as
 GRUB_MKRESCUE := grub-mkrescue
 
 OBJ := build
@@ -34,8 +36,8 @@ $(OBJ)/libgo.so: runtime/libgo.c
 	$(GCC) -shared -c $^ -o $@ -std=gnu99 -ffreestanding
 
 # assemble bootloader
-$(OBJ)/boot.o: boot/boot.asm
-	$(NASM) -felf32 $^ -o $@
+$(OBJ)/boot.o: boot/boot.s
+	$(GAS) $^ -o $@
 
 
 # bootable iso 
